@@ -149,52 +149,51 @@ export default function CalendarPage({ meId, me }: { meId: string; me: Member })
               const approved = forCar.filter((b) => b.status === 'APPROVED');
               const pending = forCar.filter((b) => b.status === 'PENDING');
               return (
-                <li key={car.id} className="border border-hairline rounded-xl p-3 bg-muted/40">
-                  <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <div className="font-medium">{car.name}</div>
-                      {car.color && <div className="text-xs text-ink/60">{car.color}</div>}
-                    </div>
-                    {blockReason ? (
-                      <span
-                        title={blockReason}
-                        className="text-sm px-3 py-1 bg-ink/10 text-ink/40 rounded-full font-semibold cursor-not-allowed"
-                      >
-                        בקשה
-                      </span>
-                    ) : (
-                      <Link
-                        to={`/new-booking?carId=${car.id}&date=${fromStr}&endDate=${toStr}`}
-                        className="text-sm px-3 py-1 bg-primary text-white rounded-full font-semibold shadow-soft"
-                      >
-                        בקשה
-                      </Link>
+                <li key={car.id} className="border border-hairline rounded-xl p-3 bg-muted/40 flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium">{car.name}</div>
+                    {car.color && <div className="text-xs text-ink/60">{car.color}</div>}
+
+                    {approved.length === 0 && pending.length === 0 && (
+                      <div className="text-sm text-green-700 mt-2">✓ פנוי בטווח</div>
+                    )}
+
+                    {approved.map((b) => (
+                      <div key={b.id} className="text-sm mt-2 text-red-700">
+                        🔒 {b.driver?.name ?? 'מישהו'} — {fmtBooking(b)}
+                        {b.purpose ? <span className="text-ink/60"> · {b.purpose}</span> : null}
+                      </div>
+                    ))}
+
+                    {pending.length > 0 && (
+                      <div className="mt-2">
+                        <div className="text-sm text-yellow-700 font-medium">
+                          {pending.length} בקשות ממתינות
+                        </div>
+                        {pending.map((b) => (
+                          <div key={b.id} className="text-xs text-ink/70 pr-3">
+                            • {b.driver?.name ?? 'מישהו'} {fmtBooking(b)}
+                            {b.purpose ? <span className="text-ink/60"> · {b.purpose}</span> : null}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
 
-                  {approved.length === 0 && pending.length === 0 && (
-                    <div className="text-sm text-green-700 mt-2">✓ פנוי בטווח</div>
-                  )}
-
-                  {approved.map((b) => (
-                    <div key={b.id} className="text-sm mt-2 text-red-700">
-                      🔒 {b.driver?.name ?? 'מישהו'} — {fmtBooking(b)}
-                      {b.purpose ? <span className="text-ink/60"> · {b.purpose}</span> : null}
-                    </div>
-                  ))}
-
-                  {pending.length > 0 && (
-                    <div className="mt-2">
-                      <div className="text-sm text-yellow-700 font-medium">
-                        {pending.length} בקשות ממתינות
-                      </div>
-                      {pending.map((b) => (
-                        <div key={b.id} className="text-xs text-ink/70 pr-3">
-                          • {b.driver?.name ?? 'מישהו'} {fmtBooking(b)}
-                          {b.purpose ? <span className="text-ink/60"> · {b.purpose}</span> : null}
-                        </div>
-                      ))}
-                    </div>
+                  {blockReason ? (
+                    <span
+                      title={blockReason}
+                      className="shrink-0 text-sm px-3 py-1 bg-ink/10 text-ink/40 rounded-full font-semibold cursor-not-allowed"
+                    >
+                      שאטגן
+                    </span>
+                  ) : (
+                    <Link
+                      to={`/new-booking?carId=${car.id}&date=${fromStr}&endDate=${toStr}`}
+                      className="shrink-0 text-sm px-3 py-1 bg-primary text-white rounded-full font-semibold shadow-soft"
+                    >
+                      שאטגן
+                    </Link>
                   )}
                 </li>
               );

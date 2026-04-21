@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Booking, type Car } from '../lib/api';
+import Spinner from '../components/Spinner';
 
 export default function NewBookingPage({ meId }: { meId: string }) {
   const [params] = useSearchParams();
@@ -106,7 +107,8 @@ export default function NewBookingPage({ meId }: { meId: string }) {
 
       <div className="flex gap-2">
         <button type="submit" disabled={submit.isPending}
-          className="px-4 py-2 bg-primary text-white rounded-xl shadow-soft font-semibold disabled:opacity-50">
+          className="px-4 py-2 bg-primary text-white rounded-xl shadow-soft font-semibold disabled:opacity-50 flex items-center gap-2">
+          {submit.isPending && <Spinner size="sm" className="text-white" />}
           שליחת בקשה
         </button>
         <button type="button" onClick={() => nav(-1)} className="px-4 py-2 border border-hairline rounded-xl hover:bg-muted">

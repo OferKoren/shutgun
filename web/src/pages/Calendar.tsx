@@ -2,14 +2,17 @@ import { useMemo, useState } from 'react';
 import { DayPicker, type DateRange } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { useQuery } from '@tanstack/react-query';
-import { format, isSameDay, eachDayOfInterval } from 'date-fns';
+import { format, isSameDay, eachDayOfInterval, startOfToday } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
-import { api, type Booking, type Car } from '../lib/api';
+import { api, type Booking, type Car, type Member } from '../lib/api';
+import { LoadingBlock } from '../components/Spinner';
+import FlowerGate from '../components/FlowerGate';
+import { SpyComposeButton } from '../components/SpyComposeModal';
 
 type CalendarPayload = { from: string; to: string; cars: Car[]; bookings: Booking[] };
 
-export default function CalendarPage({ meId: _meId }: { meId: string }) {
+export default function CalendarPage({ meId, me }: { meId: string; me: Member }) {
   const today = new Date();
   const [month, setMonth] = useState<Date>(today);
   const [range, setRange] = useState<DateRange | undefined>({ from: today, to: today });
@@ -35,10 +38,11 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
     return map;
   }, [data]);
 
-  const dayStatus = (d: Date): 'green' | 'yellow' | 'red' | 'none' => {
+  const dayStatus = (d: Date): 'mine' | 'green' | 'yellow' | 'red' | 'none' => {
     const cars = data?.cars ?? [];
     if (cars.length === 0) return 'none';
     const dayBookings = bookingsByDay.get(format(d, 'yyyy-MM-dd')) ?? [];
+    if (dayBookings.some((b) => b.status === 'APPROVED' && b.driverId === meId)) return 'mine';
     if (dayBookings.length === 0) return 'green';
     const approvedCarIds = new Set(dayBookings.filter((b) => b.status === 'APPROVED').map((b) => b.carId));
     if (approvedCarIds.size >= cars.length) return 'red';
@@ -46,15 +50,21 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
     return 'green';
   };
 
+  const todayStart = startOfToday();
+  const isPast = (d: Date) => d < todayStart;
   const modifiers = {
-    green: (d: Date) => dayStatus(d) === 'green',
-    yellow: (d: Date) => dayStatus(d) === 'yellow',
-    red: (d: Date) => dayStatus(d) === 'red',
+    mine: (d: Date) => !isPast(d) && dayStatus(d) === 'mine',
+    green: (d: Date) => !isPast(d) && dayStatus(d) === 'green',
+    yellow: (d: Date) => !isPast(d) && dayStatus(d) === 'yellow',
+    red: (d: Date) => !isPast(d) && dayStatus(d) === 'red',
+    past: isPast,
   };
   const modifiersClassNames = {
+    mine: 'font-bold text-blue-600 after:content-[""] after:block after:w-2.5 after:h-2.5 after:bg-blue-600 after:rounded-full after:mx-auto after:mt-0.5 after:shadow-soft',
     green: 'after:content-[""] after:block after:w-1.5 after:h-1.5 after:bg-green-500 after:rounded-full after:mx-auto after:mt-0.5',
     yellow: 'after:content-[""] after:block after:w-1.5 after:h-1.5 after:bg-yellow-500 after:rounded-full after:mx-auto after:mt-0.5',
     red: 'after:content-[""] after:block after:w-1.5 after:h-1.5 after:bg-red-500 after:rounded-full after:mx-auto after:mt-0.5',
+    past: 'text-ink/30 line-through opacity-50',
   };
 
   const from = range?.from;
@@ -93,6 +103,7 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
           onMonthChange={setMonth}
           selected={range}
           onSelect={setRange}
+          disabled={{ before: todayStart }}
           modifiers={modifiers}
           modifiersClassNames={modifiersClassNames}
           showOutsideDays
@@ -100,6 +111,7 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
           dir="rtl"
         />
         <div className="flex gap-3 text-xs text-ink/70 mt-2 flex-wrap">
+          <span className="flex items-center gap-1 font-semibold text-blue-600"><span className="w-2.5 h-2.5 bg-blue-600 rounded-full" /> מאושר לך</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 bg-green-500 rounded-full" /> פנוי</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 bg-yellow-500 rounded-full" /> ממתין</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 bg-red-500 rounded-full" /> תפוס</span>
@@ -110,14 +122,28 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
         <h2 className="font-display font-semibold text-lg mb-3 text-primary">
           {rangeLabel}
         </h2>
-        {!data && <div>טוען…</div>}
+        {!data && <LoadingBlock />}
         {data && data.cars.length === 0 && (
           <div className="text-ink/60 text-sm">
             אין רכבים עדיין. <Link className="text-primary underline" to="/cars">הוסיפו ←</Link>
           </div>
         )}
-        {data && from && to && (
+        {data && from && to && (() => {
+          const myOwnInRange = rangeBookings.filter(
+            (b) => b.driverId === meId && (b.status === 'APPROVED' || b.status === 'PENDING'),
+          );
+          const blockReason = myOwnInRange.some((b) => b.status === 'APPROVED')
+            ? 'יש לך כבר בקשה מאושרת בטווח'
+            : myOwnInRange.length > 0
+              ? 'יש לך כבר בקשה ממתינה בטווח'
+              : null;
+          return (
           <ul className="space-y-3">
+            {blockReason && (
+              <li className="text-sm bg-blue-50 border border-blue-200 text-blue-900 rounded-xl p-3">
+                🚫 {blockReason} — לא ניתן לשלוח בקשה נוספת
+              </li>
+            )}
             {data.cars.map((car) => {
               const forCar = rangeBookings.filter((b) => b.carId === car.id);
               const approved = forCar.filter((b) => b.status === 'APPROVED');
@@ -129,12 +155,21 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
                       <div className="font-medium">{car.name}</div>
                       {car.color && <div className="text-xs text-ink/60">{car.color}</div>}
                     </div>
-                    <Link
-                      to={`/new-booking?carId=${car.id}&date=${fromStr}&endDate=${toStr}`}
-                      className="text-sm px-3 py-1 bg-primary text-white rounded-full font-semibold shadow-soft"
-                    >
-                      בקשה
-                    </Link>
+                    {blockReason ? (
+                      <span
+                        title={blockReason}
+                        className="text-sm px-3 py-1 bg-ink/10 text-ink/40 rounded-full font-semibold cursor-not-allowed"
+                      >
+                        בקשה
+                      </span>
+                    ) : (
+                      <Link
+                        to={`/new-booking?carId=${car.id}&date=${fromStr}&endDate=${toStr}`}
+                        className="text-sm px-3 py-1 bg-primary text-white rounded-full font-semibold shadow-soft"
+                      >
+                        בקשה
+                      </Link>
+                    )}
                   </div>
 
                   {approved.length === 0 && pending.length === 0 && (
@@ -165,8 +200,11 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
               );
             })}
           </ul>
-        )}
+          );
+        })()}
       </div>
+      <FlowerGate me={me} />
+      {me.name === 'המרגל' && <SpyComposeButton />}
     </div>
   );
 }

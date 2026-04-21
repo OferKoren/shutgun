@@ -1,5 +1,5 @@
 const RAW_BASE = import.meta.env.VITE_API_URL;
-const BASE = RAW_BASE
+export const BASE = RAW_BASE
   ? (/^https?:\/\//i.test(RAW_BASE) ? RAW_BASE : `https://${RAW_BASE}`)
   : '/api';
 
@@ -41,6 +41,11 @@ export type Booking = {
   createdAt: string;
   driver?: Member; car?: Car;
 };
+export type SpyMessage = {
+  id: string; senderId: string; senderName: string; body: string; createdAt: string;
+};
+export type ConflictRow = { id: string; driverId: string; startAt: string; endAt: string };
 export type ApprovalRow = Booking & {
-  conflicts: { id: string; driverId: string; startAt: string; endAt: string }[];
+  conflicts: ConflictRow[];
+  approvedConflicts: ConflictRow[];
 };

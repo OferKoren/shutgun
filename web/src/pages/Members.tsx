@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, setMemberId, type Member } from '../lib/api';
+import Spinner from '../components/Spinner';
 
 export default function MembersPage({ meId }: { meId: string }) {
   const qc = useQueryClient();
@@ -36,7 +37,10 @@ export default function MembersPage({ meId }: { meId: string }) {
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="שם"
             className="flex-1 border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary" />
           <button onClick={() => add.mutate()} disabled={!name.trim() || add.isPending}
-            className="px-4 py-2 bg-primary text-white rounded-xl shadow-soft font-semibold disabled:opacity-50">הוספה</button>
+            className="px-4 py-2 bg-primary text-white rounded-xl shadow-soft font-semibold disabled:opacity-50 flex items-center gap-2">
+            {add.isPending && <Spinner size="sm" className="text-white" />}
+            הוספה
+          </button>
         </div>
       </section>
 

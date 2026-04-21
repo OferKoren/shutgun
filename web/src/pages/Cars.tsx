@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type Car, type Member } from '../lib/api';
+import { api, getMemberId, type Car, type Member } from '../lib/api';
 import { CAR_COLORS, CAR_ICONS, CarIcon, DEFAULT_COLOR, DEFAULT_ICON } from '../lib/carStyles';
+import ConfirmModal from '../components/ConfirmModal';
+import Spinner from '../components/Spinner';
+
+type SelfRemoveIntent =
+  | { kind: 'self'; carId: string; carName: string; nextIds: string[] }
+  | { kind: 'last'; carId: string; carName: string };
 
 export default function CarsPage({ members }: { members: Member[] }) {
   const qc = useQueryClient();
@@ -12,6 +18,8 @@ export default function CarsPage({ members }: { members: Member[] }) {
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [icon, setIcon] = useState<string>(DEFAULT_ICON);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [selfRemove, setSelfRemove] = useState<SelfRemoveIntent | null>(null);
 
   useEffect(() => {
     if (!confirmDeleteId) return;
@@ -25,6 +33,7 @@ export default function CarsPage({ members }: { members: Member[] }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cars'] });
       setName(''); setOwnerIds([]); setColor(DEFAULT_COLOR); setIcon(DEFAULT_ICON);
+      setAddOpen(false);
     },
   });
   const del = useMutation({
@@ -43,8 +52,17 @@ export default function CarsPage({ members }: { members: Member[] }) {
   return (
     <div className="space-y-6 max-w-2xl">
       <section className="bg-surface rounded-2xl p-4 shadow-soft border border-hairline">
-        <h2 className="font-display font-semibold text-xl mb-3 text-primary">הוספת רכב</h2>
-        <div className="space-y-4">
+        <button
+          type="button"
+          onClick={() => setAddOpen((v) => !v)}
+          aria-expanded={addOpen}
+          className="w-full flex items-center justify-between gap-3"
+        >
+          <h2 className="font-display font-semibold text-xl text-primary">הוספת רכב</h2>
+          <span className={`text-ink/60 transition-transform ${addOpen ? 'rotate-180' : ''}`} aria-hidden>▾</span>
+        </button>
+        {addOpen && (
+        <div className="space-y-4 mt-3">
           <div className="flex items-center gap-3">
             <div className="shrink-0 w-20 h-12 rounded-xl bg-muted/40 border border-hairline flex items-center justify-center">
               <CarIcon icon={icon} color={color} className="w-16 h-10" />
@@ -100,12 +118,19 @@ export default function CarsPage({ members }: { members: Member[] }) {
             </div>
           </div>
           <button onClick={() => create.mutate()} disabled={!name.trim() || create.isPending}
-            className="px-4 py-2 bg-primary text-white rounded-xl shadow-soft font-semibold disabled:opacity-50">הוספה</button>
+            className="px-4 py-2 bg-primary text-white rounded-xl shadow-soft font-semibold disabled:opacity-50 flex items-center gap-2">
+            {create.isPending && <Spinner size="sm" className="text-white" />}
+            הוספה
+          </button>
         </div>
+        )}
       </section>
 
       <section className="space-y-3">
-        {cars.map((car) => (
+        {cars.map((car) => {
+          const myId = getMemberId();
+          const isOwner = !!myId && car.owners.some((o) => o.id === myId);
+          return (
           <div key={car.id} className="bg-surface rounded-2xl p-4 shadow-soft border border-hairline">
             <div className="flex justify-between items-start gap-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -114,7 +139,7 @@ export default function CarsPage({ members }: { members: Member[] }) {
                 </div>
                 <div className="font-medium truncate">{car.name}</div>
               </div>
-              {confirmDeleteId === car.id ? (
+              {isOwner && (confirmDeleteId === car.id ? (
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => { del.mutate(car.id); setConfirmDeleteId(null); }}
@@ -130,30 +155,79 @@ export default function CarsPage({ members }: { members: Member[] }) {
                   onClick={() => setConfirmDeleteId(car.id)}
                   className="text-sm text-red-600 shrink-0"
                 >מחיקה</button>
-              )}
+              ))}
             </div>
             <div className="mt-3">
               <div className="text-sm font-medium mb-1">בעלים</div>
-              <div className="flex flex-wrap gap-2">
-                {members.map((m) => {
-                  const checked = car.owners.some((o) => o.id === m.id);
-                  return (
-                    <label key={m.id} className="flex items-center gap-1 border border-hairline px-3 py-1 rounded-full bg-muted/40">
-                      <input type="checkbox" checked={checked}
-                        onChange={() => {
-                          const next = toggle(m.id, car.owners.map((o) => o.id));
-                          setOwners.mutate({ carId: car.id, ownerIds: next });
-                        }} />
-                      <span>{m.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
+              {isOwner ? (
+                <div className="flex flex-wrap gap-2">
+                  {members.map((m) => {
+                    const checked = car.owners.some((o) => o.id === m.id);
+                    return (
+                      <label key={m.id} className="flex items-center gap-1 border border-hairline px-3 py-1 rounded-full bg-muted/40">
+                        <input type="checkbox" checked={checked}
+                          onChange={() => {
+                            const currentIds = car.owners.map((o) => o.id);
+                            const next = toggle(m.id, currentIds);
+                            const removingSelf = m.id === myId && checked;
+                            if (removingSelf) {
+                              if (car.owners.length === 1) {
+                                setSelfRemove({ kind: 'last', carId: car.id, carName: car.name });
+                              } else {
+                                setSelfRemove({ kind: 'self', carId: car.id, carName: car.name, nextIds: next });
+                              }
+                              return;
+                            }
+                            setOwners.mutate({ carId: car.id, ownerIds: next });
+                          }} />
+                        <span>{m.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {car.owners.map((o) => (
+                    <span key={o.id} className="text-sm border border-hairline px-3 py-1 rounded-full bg-muted/40">{o.name}</span>
+                  ))}
+                  {car.owners.length === 0 && <span className="text-sm text-ink/60">אין בעלים.</span>}
+                </div>
+              )}
             </div>
           </div>
-        ))}
+          );
+        })}
         {cars.length === 0 && <div className="text-ink/60">אין רכבים עדיין.</div>}
       </section>
+
+      <ConfirmModal
+        open={selfRemove?.kind === 'self'}
+        icon="👋"
+        title="להסיר את עצמך מהבעלים?"
+        body={selfRemove?.kind === 'self' ? `לא תוכל יותר לאשר בקשות עבור "${selfRemove.carName}".` : ''}
+        confirmLabel="הסרה"
+        variant="danger"
+        onCancel={() => setSelfRemove(null)}
+        onConfirm={() => {
+          if (selfRemove?.kind !== 'self') return;
+          setOwners.mutate({ carId: selfRemove.carId, ownerIds: selfRemove.nextIds });
+          setSelfRemove(null);
+        }}
+      />
+      <ConfirmModal
+        open={selfRemove?.kind === 'last'}
+        icon="⚠️"
+        title="זהו הבעלים האחרון"
+        body={selfRemove?.kind === 'last' ? `הסרת עצמך תמחק את הרכב "${selfRemove.carName}" לצמיתות יחד עם כל ההזמנות שלו.` : ''}
+        confirmLabel="למחוק את הרכב"
+        variant="danger"
+        onCancel={() => setSelfRemove(null)}
+        onConfirm={() => {
+          if (selfRemove?.kind !== 'last') return;
+          del.mutate(selfRemove.carId);
+          setSelfRemove(null);
+        }}
+      />
     </div>
   );
 }

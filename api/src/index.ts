@@ -5,6 +5,9 @@ import { carsRouter } from './routes/cars.js';
 import { bookingsRouter } from './routes/bookings.js';
 import { calendarRouter } from './routes/calendar.js';
 import { pushRouter } from './routes/push.js';
+import { eventsRouter } from './routes/events.js';
+import { spyRouter } from './routes/spy.js';
+import { settingsRouter } from './routes/settings.js';
 import { errorHandler } from './middleware/error.js';
 
 const app = express();
@@ -39,6 +42,9 @@ app.use('/cars', carsRouter);
 app.use('/bookings', bookingsRouter);
 app.use('/calendar', calendarRouter);
 app.use('/push', pushRouter);
+app.use('/events', eventsRouter);
+app.use('/spy', spyRouter);
+app.use('/settings', settingsRouter);
 
 app.use(errorHandler);
 

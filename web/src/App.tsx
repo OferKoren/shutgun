@@ -1,7 +1,7 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { api, getMemberId, setMemberId, type Member } from './lib/api';
+import { api, BASE, getMemberId, setMemberId, type Member } from './lib/api';
 import IdentityPicker from './components/IdentityPicker';
 import Onboarding from './components/Onboarding';
 import CalendarPage from './pages/Calendar';
@@ -10,12 +10,27 @@ import NewBookingPage from './pages/NewBooking';
 import CarsPage from './pages/Cars';
 import MembersPage from './pages/Members';
 import EnablePushBanner from './components/EnablePushBanner';
+import NotificationsButton from './components/NotificationsButton';
+import ConnectingScreen from './components/ConnectingScreen';
+import { useRealtime } from './lib/realtime';
+
+function warmup() {
+  fetch(`${BASE}/health`, { cache: 'no-store', keepalive: true }).catch(() => {});
+}
 
 export default function App() {
+  useRealtime();
+  const qc = useQueryClient();
   const [memberId, setMid] = useState<string | null>(getMemberId());
   const [showOnboarding, setShowOnboarding] = useState<boolean>(() => localStorage.getItem('shotgun:onboarding') === '1');
 
-  const { data: members = [] } = useQuery({
+  const {
+    data: members = [],
+    isLoading: membersLoading,
+    isSuccess: membersLoaded,
+    isError: membersError,
+    refetch: refetchMembers,
+  } = useQuery({
     queryKey: ['members'],
     queryFn: () => api<Member[]>('/members'),
   });
@@ -23,11 +38,35 @@ export default function App() {
   const me = members.find((m) => m.id === memberId);
 
   useEffect(() => {
-    if (memberId && members.length && !me) {
+    if (memberId && membersLoaded && members.length && !me) {
       setMemberId(null);
       setMid(null);
     }
-  }, [members, memberId, me]);
+  }, [members, memberId, me, membersLoaded]);
+
+  useEffect(() => {
+    warmup();
+  }, []);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      warmup();
+      qc.invalidateQueries();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [qc]);
+
+  if ((membersLoading && !members.length) || (memberId && !membersLoaded)) {
+    return <ConnectingScreen error={membersError} onRetry={() => refetchMembers()} />;
+  }
 
   if (!memberId || !me) {
     return <IdentityPicker members={members} onPicked={(id) => {
@@ -67,6 +106,7 @@ export default function App() {
             ))}
           </nav>
           <div className="text-sm mr-auto md:mr-0 flex items-center gap-2">
+            <NotificationsButton meId={me.id} />
             <span className="hidden sm:inline text-ink/60">מחוברים כ־</span>
             <b className="text-ink">{me.name}</b>
             <button
@@ -80,7 +120,7 @@ export default function App() {
       <main className="max-w-5xl mx-auto px-4 py-4 md:py-6">
         <EnablePushBanner />
         <Routes>
-          <Route path="/" element={<CalendarPage meId={me.id} />} />
+          <Route path="/" element={<CalendarPage meId={me.id} me={me} />} />
           <Route path="/approvals" element={<ApprovalsPage meId={me.id} members={members} />} />
           <Route path="/new-booking" element={<NewBookingPage meId={me.id} />} />
           <Route path="/cars" element={<CarsPage members={members} />} />

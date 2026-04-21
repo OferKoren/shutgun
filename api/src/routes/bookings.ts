@@ -5,6 +5,7 @@ import { readMember, requireMember } from '../middleware/member.js';
 import { httpError } from '../middleware/error.js';
 import { autoDeclineConflictingPending, findOverlapping } from '../lib/conflicts.js';
 import { sendPushToMember, sendPushToMembers } from '../lib/push.js';
+import { publish } from '../lib/events.js';
 
 export const bookingsRouter = Router();
 bookingsRouter.use(readMember);
@@ -31,12 +32,16 @@ bookingsRouter.get('/', async (req, res, next) => {
       from: z.string().datetime().optional(),
       to: z.string().datetime().optional(),
       carId: z.string().optional(),
+      driverId: z.string().optional(),
+      decidedBy: z.string().optional(),
       status: z.enum(['PENDING', 'APPROVED', 'DECLINED', 'CANCELLED']).optional(),
     }).parse(req.query);
 
     const bookings = await prisma.booking.findMany({
       where: {
         carId: q.carId,
+        driverId: q.driverId,
+        decidedBy: q.decidedBy,
         status: q.status,
         startAt: q.to ? { lt: new Date(q.to) } : undefined,
         endAt: q.from ? { gt: new Date(q.from) } : undefined,
@@ -64,10 +69,14 @@ bookingsRouter.get('/pending-approvals', requireMember, async (req, res, next) =
     const withConflicts = await Promise.all(
       bookings.map(async (b) => {
         const conflicts = await findOverlapping(b.carId, b.startAt, b.endAt, b.id);
-        const pendingConflicts = conflicts.filter((c) => c.status === 'PENDING');
-        return { ...b, conflicts: pendingConflicts.map((c) => ({
+        const toRow = (c: typeof conflicts[number]) => ({
           id: c.id, driverId: c.driverId, startAt: c.startAt, endAt: c.endAt,
-        })) };
+        });
+        return {
+          ...b,
+          conflicts: conflicts.filter((c) => c.status === 'PENDING').map(toRow),
+          approvedConflicts: conflicts.filter((c) => c.status === 'APPROVED').map(toRow),
+        };
       }),
     );
     res.json(withConflicts);
@@ -80,6 +89,19 @@ bookingsRouter.post('/', async (req, res, next) => {
     const startAt = new Date(body.startAt);
     const endAt = new Date(body.endAt);
     if (endAt <= startAt) throw httpError(400, 'endAt must be after startAt');
+
+    const selfOverlap = await prisma.booking.findFirst({
+      where: {
+        driverId: body.driverId,
+        status: { in: ['PENDING', 'APPROVED'] },
+        AND: [{ startAt: { lt: endAt } }, { endAt: { gt: startAt } }],
+      },
+      include: { car: true },
+    });
+    if (selfOverlap) {
+      const label = selfOverlap.status === 'APPROVED' ? 'מאושרת' : 'ממתינה';
+      throw httpError(409, `כבר קיימת בקשה ${label} שלך (${selfOverlap.car.name}) בזמן הזה`);
+    }
 
     const isOwner = await prisma.carOwner.findUnique({
       where: { carId_memberId: { carId: body.carId, memberId: body.driverId } },
@@ -112,8 +134,17 @@ bookingsRouter.post('/', async (req, res, next) => {
       include: { driver: true, car: true },
     });
 
+    publish({
+      type: autoApprove ? 'booking.approved' : 'booking.created',
+      bookingId: booking.id,
+      carId: booking.carId,
+    });
+
     if (autoApprove) {
       const declined = await autoDeclineConflictingPending(body.carId, startAt, endAt, booking.id);
+      for (const v of declined.victims) {
+        publish({ type: 'booking.declined', bookingId: v.id, carId: body.carId });
+      }
       if (declined.victims.length) {
         await sendPushToMembers(
           declined.victims.map((v) => v.driverId),
@@ -145,6 +176,7 @@ bookingsRouter.post('/', async (req, res, next) => {
 
 bookingsRouter.post('/:id/approve', requireMember, async (req, res, next) => {
   try {
+    const { override } = z.object({ override: z.boolean().optional() }).parse(req.body ?? {});
     const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
     if (!booking) throw httpError(404, 'Booking not found');
     if (booking.status !== 'PENDING') throw httpError(409, 'Booking is not pending');
@@ -154,15 +186,41 @@ bookingsRouter.post('/:id/approve', requireMember, async (req, res, next) => {
     });
     if (!isOwner) throw httpError(403, 'Only car owner can approve');
 
-    const overlappingApproved = await prisma.booking.findFirst({
+    const overlappingApproved = await prisma.booking.findMany({
       where: {
         carId: booking.carId,
         id: { not: booking.id },
         status: 'APPROVED',
         AND: [{ startAt: { lt: booking.endAt } }, { endAt: { gt: booking.startAt } }],
       },
+      include: { car: true },
     });
-    if (overlappingApproved) throw httpError(409, 'Conflicts with already-approved booking');
+    if (overlappingApproved.length && !override) {
+      throw httpError(409, 'Conflicts with already-approved booking');
+    }
+    if (overlappingApproved.length && override) {
+      await prisma.booking.updateMany({
+        where: { id: { in: overlappingApproved.map((o) => o.id) } },
+        data: {
+          status: 'DECLINED',
+          declineReason: 'Overridden by owner decision',
+          decidedBy: req.memberId!,
+          decidedAt: new Date(),
+        },
+      });
+      for (const o of overlappingApproved) {
+        publish({ type: 'booking.declined', bookingId: o.id, carId: o.carId });
+      }
+      await sendPushToMembers(
+        overlappingApproved.map((o) => o.driverId),
+        {
+          title: 'האישור בוטל',
+          body: `${overlappingApproved[0].car.name} · בעל הרכב אישר בקשה אחרת`,
+          url: '/',
+          tag: 'override-declined',
+        },
+      );
+    }
 
     const approved = await prisma.booking.update({
       where: { id: booking.id },
@@ -170,6 +228,10 @@ bookingsRouter.post('/:id/approve', requireMember, async (req, res, next) => {
       include: { driver: true, car: true },
     });
     const declined = await autoDeclineConflictingPending(booking.carId, booking.startAt, booking.endAt, booking.id);
+    publish({ type: 'booking.approved', bookingId: approved.id, carId: approved.carId });
+    for (const v of declined.victims) {
+      publish({ type: 'booking.declined', bookingId: v.id, carId: booking.carId });
+    }
 
     await sendPushToMember(approved.driverId, {
       title: 'הבקשה אושרה ✅',
@@ -215,7 +277,57 @@ bookingsRouter.post('/:id/decline', requireMember, async (req, res, next) => {
       url: '/',
       tag: `declined-${declined.id}`,
     });
+    publish({ type: 'booking.declined', bookingId: declined.id, carId: declined.carId });
     res.json(declined);
+  } catch (e) { next(e); }
+});
+
+bookingsRouter.post('/:id/revoke', requireMember, async (req, res, next) => {
+  try {
+    const { reason } = z.object({ reason: z.string().trim().max(200).optional() }).parse(req.body ?? {});
+    const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
+    if (!booking) throw httpError(404, 'Booking not found');
+    if (booking.status !== 'APPROVED') throw httpError(409, 'Booking is not approved');
+
+    const isOwner = await prisma.carOwner.findUnique({
+      where: { carId_memberId: { carId: booking.carId, memberId: req.memberId! } },
+    });
+    if (!isOwner) throw httpError(403, 'Only car owner can revoke');
+
+    const revoked = await prisma.booking.update({
+      where: { id: booking.id },
+      data: {
+        status: 'DECLINED',
+        declineReason: reason && reason.length ? `Revoked by owner: ${reason}` : 'Revoked by owner',
+        decidedBy: req.memberId!,
+        decidedAt: new Date(),
+      },
+      include: { car: true },
+    });
+    publish({ type: 'booking.declined', bookingId: revoked.id, carId: revoked.carId });
+    await sendPushToMember(revoked.driverId, {
+      title: 'האישור בוטל',
+      body: `${revoked.car.name} · ${fmtRange(revoked.startAt, revoked.endAt)}${reason ? ` · ${reason}` : ''}`,
+      url: '/',
+      tag: `revoked-${revoked.id}`,
+    });
+    res.json(revoked);
+  } catch (e) { next(e); }
+});
+
+bookingsRouter.get('/my-updates', requireMember, async (req, res, next) => {
+  try {
+    const rows = await prisma.booking.findMany({
+      where: {
+        driverId: req.memberId!,
+        status: { in: ['APPROVED', 'DECLINED', 'CANCELLED'] },
+        decidedAt: { not: null },
+      },
+      include: { car: true },
+      orderBy: { decidedAt: 'desc' },
+      take: 50,
+    });
+    res.json(rows);
   } catch (e) { next(e); }
 });
 
@@ -229,6 +341,7 @@ bookingsRouter.post('/:id/cancel', requireMember, async (req, res, next) => {
       where: { id: booking.id },
       data: { status: 'CANCELLED' },
     });
+    publish({ type: 'booking.cancelled', bookingId: updated.id, carId: updated.carId });
     res.json(updated);
   } catch (e) { next(e); }
 });

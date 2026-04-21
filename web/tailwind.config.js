@@ -30,6 +30,15 @@ export default {
       boxShadow: {
         soft: '0 1px 2px rgba(154,52,18,0.04), 0 4px 16px rgba(154,52,18,0.06)',
       },
+      keyframes: {
+        wind: {
+          '0%,100%': { transform: 'rotate(-4deg) translateX(-2px)' },
+          '50%': { transform: 'rotate(4deg) translateX(2px)' },
+        },
+      },
+      animation: {
+        wind: 'wind 3s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

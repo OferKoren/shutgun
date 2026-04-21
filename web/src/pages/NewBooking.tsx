@@ -67,7 +67,7 @@ export default function NewBookingPage({ meId }: { meId: string }) {
         <span className="text-sm">כל היום</span>
       </label>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="block">
           <span className="text-sm font-medium">תאריך התחלה</span>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)}

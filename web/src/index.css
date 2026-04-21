@@ -7,6 +7,33 @@
 @layer base {
   html, body { font-family: 'Heebo', system-ui, sans-serif; }
   h1, h2, h3, h4 { font-family: 'Rubik', system-ui, sans-serif; letter-spacing: 0; }
+
+  input[type="text"],
+  input[type="date"],
+  input[type="time"],
+  input:not([type]),
+  select,
+  textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  button {
+    min-height: 44px;
+  }
+
+  input[type="checkbox"] {
+    min-height: 0;
+    width: 20px;
+    height: 20px;
+  }
 }
 
-.rdp { --rdp-accent-color: #9A3412; }
+.rdp {
+  --rdp-accent-color: #9A3412;
+  --rdp-cell-size: 44px;
+}
+
+@media (max-width: 420px) {
+  .rdp { --rdp-cell-size: 40px; }
+}

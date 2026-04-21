@@ -30,35 +30,47 @@ export default function App() {
     return <IdentityPicker members={members} onPicked={(id) => { setMemberId(id); setMid(id); }} />;
   }
 
-  const link = ({ isActive }: { isActive: boolean }) =>
+  const topLink = ({ isActive }: { isActive: boolean }) =>
     `px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
       isActive
         ? 'bg-primary text-white shadow-soft'
         : 'text-ink/70 hover:bg-primary-50 hover:text-primary'
     }`;
 
+  const tabLink = ({ isActive }: { isActive: boolean }) =>
+    `flex flex-col items-center justify-center gap-0.5 flex-1 min-h-[56px] text-xs font-semibold transition-colors ${
+      isActive ? 'text-primary' : 'text-ink/60'
+    }`;
+
+  const tabs = [
+    { to: '/', end: true, label: 'יומן', icon: '📅' },
+    { to: '/approvals', end: false, label: 'אישורים', icon: '✅' },
+    { to: '/cars', end: false, label: 'רכבים', icon: '🚗' },
+    { to: '/members', end: false, label: 'משפחה', icon: '👨‍👩‍👧' },
+  ];
+
   return (
-    <div className="min-h-screen bg-cream">
-      <header className="bg-surface/80 backdrop-blur border-b border-hairline">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
-          <div dir="ltr" className="font-display font-bold text-xl ml-4 text-primary">🚗 Shutgun</div>
-          <nav className="flex gap-1 flex-1 flex-wrap">
-            <NavLink to="/" end className={link}>יומן</NavLink>
-            <NavLink to="/approvals" className={link}>אישורים</NavLink>
-            <NavLink to="/cars" className={link}>רכבים</NavLink>
-            <NavLink to="/members" className={link}>משפחה</NavLink>
+    <div className="min-h-dvh bg-cream pb-[calc(env(safe-area-inset-bottom)+72px)] md:pb-0">
+      <header className="bg-surface/80 backdrop-blur border-b border-hairline sticky top-0 z-20">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+          <div dir="ltr" className="font-display font-bold text-xl ml-2 text-primary">🚗 Shutgun</div>
+          <nav className="hidden md:flex gap-1 flex-1 flex-wrap">
+            {tabs.map((t) => (
+              <NavLink key={t.to} to={t.to} end={t.end} className={topLink}>{t.label}</NavLink>
+            ))}
           </nav>
-          <div className="text-sm">
-            <span className="text-ink/60">מחוברים כ־</span>
-            <b className="text-ink">{me.name}</b>{' '}
+          <div className="text-sm mr-auto md:mr-0 flex items-center gap-2">
+            <span className="hidden sm:inline text-ink/60">מחוברים כ־</span>
+            <b className="text-ink">{me.name}</b>
             <button
               onClick={() => { setMemberId(null); setMid(null); }}
-              className="text-primary underline mr-1 hover:text-primary-500"
+              className="text-primary underline hover:text-primary-500"
             >החלפה</button>
           </div>
         </div>
       </header>
-      <main className="max-w-5xl mx-auto px-4 py-6">
+
+      <main className="max-w-5xl mx-auto px-4 py-4 md:py-6">
         <Routes>
           <Route path="/" element={<CalendarPage meId={me.id} />} />
           <Route path="/approvals" element={<ApprovalsPage meId={me.id} members={members} />} />
@@ -67,6 +79,17 @@ export default function App() {
           <Route path="/members" element={<MembersPage />} />
         </Routes>
       </main>
+
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-surface/95 backdrop-blur border-t border-hairline pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-5xl mx-auto flex">
+          {tabs.map((t) => (
+            <NavLink key={t.to} to={t.to} end={t.end} className={tabLink}>
+              <span className="text-lg leading-none">{t.icon}</span>
+              <span>{t.label}</span>
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

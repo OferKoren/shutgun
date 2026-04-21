@@ -3,14 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, getMemberId, setMemberId, type Member } from './lib/api';
 import IdentityPicker from './components/IdentityPicker';
+import Onboarding from './components/Onboarding';
 import CalendarPage from './pages/Calendar';
 import ApprovalsPage from './pages/Approvals';
 import NewBookingPage from './pages/NewBooking';
 import CarsPage from './pages/Cars';
 import MembersPage from './pages/Members';
+import EnablePushBanner from './components/EnablePushBanner';
 
 export default function App() {
   const [memberId, setMid] = useState<string | null>(getMemberId());
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => localStorage.getItem('shotgun:onboarding') === '1');
 
   const { data: members = [] } = useQuery({
     queryKey: ['members'],
@@ -27,7 +30,11 @@ export default function App() {
   }, [members, memberId, me]);
 
   if (!memberId || !me) {
-    return <IdentityPicker members={members} onPicked={(id) => { setMemberId(id); setMid(id); }} />;
+    return <IdentityPicker members={members} onPicked={(id) => {
+      setMemberId(id);
+      setMid(id);
+      if (localStorage.getItem('shotgun:onboarding') === '1') setShowOnboarding(true);
+    }} />;
   }
 
   const topLink = ({ isActive }: { isActive: boolean }) =>
@@ -71,6 +78,7 @@ export default function App() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-4 md:py-6">
+        <EnablePushBanner />
         <Routes>
           <Route path="/" element={<CalendarPage meId={me.id} />} />
           <Route path="/approvals" element={<ApprovalsPage meId={me.id} members={members} />} />
@@ -79,6 +87,16 @@ export default function App() {
           <Route path="/members" element={<MembersPage />} />
         </Routes>
       </main>
+
+      {showOnboarding && (
+        <Onboarding
+          userName={me.name}
+          onDone={() => {
+            localStorage.removeItem('shotgun:onboarding');
+            setShowOnboarding(false);
+          }}
+        />
+      )}
 
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-surface/95 backdrop-blur border-t border-hairline pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-5xl mx-auto flex">

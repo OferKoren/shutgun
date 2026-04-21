@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { api, type Member } from '../lib/api';
 
 export default function IdentityPicker({
@@ -11,12 +12,15 @@ export default function IdentityPicker({
 }) {
   const [name, setName] = useState('');
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const add = useMutation({
     mutationFn: (n: string) => api<Member>('/members', { method: 'POST', body: JSON.stringify({ name: n }) }),
     onSuccess: (m) => {
       qc.invalidateQueries({ queryKey: ['members'] });
+      localStorage.setItem('shotgun:onboarding', '1');
       onPicked(m.id);
+      navigate('/');
     },
   });
 

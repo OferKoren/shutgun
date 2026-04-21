@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Car, type Member } from '../lib/api';
 import { CAR_COLORS, CAR_ICONS, CarIcon, DEFAULT_COLOR, DEFAULT_ICON } from '../lib/carStyles';
@@ -11,6 +11,13 @@ export default function CarsPage({ members }: { members: Member[] }) {
   const [ownerIds, setOwnerIds] = useState<string[]>([]);
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [icon, setIcon] = useState<string>(DEFAULT_ICON);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+    const t = setTimeout(() => setConfirmDeleteId(null), 4000);
+    return () => clearTimeout(t);
+  }, [confirmDeleteId]);
 
   const create = useMutation({
     mutationFn: () =>
@@ -107,7 +114,23 @@ export default function CarsPage({ members }: { members: Member[] }) {
                 </div>
                 <div className="font-medium truncate">{car.name}</div>
               </div>
-              <button onClick={() => del.mutate(car.id)} className="text-sm text-red-600 shrink-0">מחיקה</button>
+              {confirmDeleteId === car.id ? (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => { del.mutate(car.id); setConfirmDeleteId(null); }}
+                    className="text-sm font-semibold px-3 py-1 rounded-full bg-red-600 text-white shadow-soft"
+                  >למחוק?</button>
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="text-sm text-ink/60"
+                  >ביטול</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDeleteId(car.id)}
+                  className="text-sm text-red-600 shrink-0"
+                >מחיקה</button>
+              )}
             </div>
             <div className="mt-3">
               <div className="text-sm font-medium mb-1">בעלים</div>

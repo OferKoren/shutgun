@@ -17,6 +17,7 @@ export default function IdentityPicker({
   const add = useMutation({
     mutationFn: (n: string) => api<Member>('/members', { method: 'POST', body: JSON.stringify({ name: n }) }),
     onSuccess: (m) => {
+      qc.setQueryData<Member[]>(['members'], (old) => [...(old ?? []), m]);
       qc.invalidateQueries({ queryKey: ['members'] });
       localStorage.setItem('shotgun:onboarding', '1');
       onPicked(m.id);

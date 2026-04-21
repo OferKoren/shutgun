@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type Member } from '../lib/api';
+import { api, setMemberId, type Member } from '../lib/api';
 
-export default function MembersPage() {
+export default function MembersPage({ meId }: { meId: string }) {
   const qc = useQueryClient();
   const { data = [] } = useQuery({ queryKey: ['members'], queryFn: () => api<Member[]>('/members') });
 
@@ -18,7 +18,14 @@ export default function MembersPage() {
   });
   const del = useMutation({
     mutationFn: (id: string) => api(`/members/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['members'] }),
+    onSuccess: (_d, id) => {
+      if (id === meId) {
+        setMemberId(null);
+        location.reload();
+        return;
+      }
+      qc.invalidateQueries({ queryKey: ['members'] });
+    },
   });
 
   return (
@@ -37,7 +44,7 @@ export default function MembersPage() {
         <h2 className="font-display font-semibold text-lg mb-3">משפחה</h2>
         <ul className="space-y-2">
           {data.map((m) => (
-            <MemberRow key={m.id} member={m}
+            <MemberRow key={m.id} member={m} isMe={m.id === meId}
               onRename={(n) => rename.mutate({ id: m.id, name: n })}
               onDelete={() => del.mutate(m.id)} />
           ))}
@@ -48,10 +55,18 @@ export default function MembersPage() {
   );
 }
 
-function MemberRow({ member, onRename, onDelete }:
-  { member: Member; onRename: (n: string) => void; onDelete: () => void }) {
+function MemberRow({ member, isMe, onRename, onDelete }:
+  { member: Member; isMe: boolean; onRename: (n: string) => void; onDelete: () => void }) {
   const [editing, setEditing] = useState(false);
   const [v, setV] = useState(member.name);
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  useEffect(() => {
+    if (!confirmDel) return;
+    const t = setTimeout(() => setConfirmDel(false), 4000);
+    return () => clearTimeout(t);
+  }, [confirmDel]);
+
   return (
     <li className="flex items-center gap-2">
       {editing ? (
@@ -65,9 +80,22 @@ function MemberRow({ member, onRename, onDelete }:
         </>
       ) : (
         <>
-          <span className="flex-1">{member.name}</span>
-          <button onClick={() => setEditing(true)} className="text-sm text-primary">שינוי שם</button>
-          <button onClick={onDelete} className="text-sm text-red-600">מחיקה</button>
+          <span className="flex-1">{member.name}{isMe && <span className="text-ink/50 text-xs mr-2">(אני)</span>}</span>
+          {isMe && !confirmDel && (
+            <>
+              <button onClick={() => setEditing(true)} className="text-sm text-primary">שינוי שם</button>
+              <button onClick={() => setConfirmDel(true)} className="text-sm text-red-600">מחיקה</button>
+            </>
+          )}
+          {isMe && confirmDel && (
+            <>
+              <button
+                onClick={() => { onDelete(); setConfirmDel(false); }}
+                className="text-sm font-semibold px-3 py-1 rounded-full bg-red-600 text-white shadow-soft"
+              >למחוק?</button>
+              <button onClick={() => setConfirmDel(false)} className="text-sm text-ink/60">ביטול</button>
+            </>
+          )}
         </>
       )}
     </li>

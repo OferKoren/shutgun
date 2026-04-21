@@ -84,7 +84,7 @@ export default function App() {
           <Route path="/approvals" element={<ApprovalsPage meId={me.id} members={members} />} />
           <Route path="/new-booking" element={<NewBookingPage meId={me.id} />} />
           <Route path="/cars" element={<CarsPage members={members} />} />
-          <Route path="/members" element={<MembersPage />} />
+          <Route path="/members" element={<MembersPage meId={me.id} />} />
         </Routes>
       </main>
 

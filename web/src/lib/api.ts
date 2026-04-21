@@ -1,4 +1,7 @@
-const BASE = import.meta.env.VITE_API_URL ?? '/api';
+const RAW_BASE = import.meta.env.VITE_API_URL;
+const BASE = RAW_BASE
+  ? (/^https?:\/\//i.test(RAW_BASE) ? RAW_BASE : `https://${RAW_BASE}`)
+  : '/api';
 
 export function getMemberId(): string | null {
   return localStorage.getItem('memberId');

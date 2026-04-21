@@ -19,4 +19,6 @@ jobs:
       - run: npm run typecheck --workspaces --if-present
       - run: npm run build --workspaces --if-present
       - name: Prisma validate
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
         run: npx --workspace api prisma validate

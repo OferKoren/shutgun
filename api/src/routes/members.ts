@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db.js';
 import { httpError } from '../middleware/error.js';
-import { requireMember } from '../middleware/member.js';
+import { readMember, requireMember } from '../middleware/member.js';
 
 export const membersRouter = Router();
+membersRouter.use(readMember);
 
 membersRouter.get('/', async (_req, res) => {
   const members = await prisma.member.findMany({ orderBy: { name: 'asc' } });

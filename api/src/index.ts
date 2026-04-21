@@ -8,7 +8,28 @@ import { pushRouter } from './routes/push.js';
 import { errorHandler } from './middleware/error.js';
 
 const app = express();
-app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') ?? true }));
+
+const allowedHosts = (process.env.CORS_ORIGIN ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .map((v) => {
+    try { return new URL(/^https?:\/\//i.test(v) ? v : `https://${v}`).host; }
+    catch { return v; }
+  });
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (allowedHosts.length === 0) return cb(null, true);
+    try {
+      const host = new URL(origin).host;
+      return cb(null, allowedHosts.includes(host));
+    } catch {
+      return cb(null, false);
+    }
+  },
+}));
 app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));

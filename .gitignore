@@ -9,3 +9,4 @@ build/
 api/prisma/*.db
 .vite/
 coverage/
+*.tsbuildinfo

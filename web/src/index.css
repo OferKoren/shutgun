@@ -1,0 +1,5 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.rdp { --rdp-accent-color: #2563eb; }

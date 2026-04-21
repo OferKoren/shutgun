@@ -82,15 +82,15 @@ export default function NewBookingPage({ meId }: { meId: string }) {
         </label>
         {!allDay && (
           <>
-            <label className="block">
+            <label className="flex flex-col items-center px-2">
               <span className="text-sm font-medium">שעת התחלה</span>
               <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-                className="mt-1 w-full border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary" required />
+                className="mt-1 w-40 border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary text-center" required />
             </label>
-            <label className="block">
+            <label className="flex flex-col items-center px-2">
               <span className="text-sm font-medium">שעת סיום</span>
               <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
-                className="mt-1 w-full border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary" required />
+                className="mt-1 w-40 border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary text-center" required />
             </label>
           </>
         )}
@@ -109,7 +109,7 @@ export default function NewBookingPage({ meId }: { meId: string }) {
         <button type="submit" disabled={submit.isPending}
           className="px-4 py-2 bg-primary text-white rounded-xl shadow-soft font-semibold disabled:opacity-50 flex items-center gap-2">
           {submit.isPending && <Spinner size="sm" className="text-white" />}
-          שליחת בקשה
+          שאטגן!
         </button>
         <button type="button" onClick={() => nav(-1)} className="px-4 py-2 border border-hairline rounded-xl hover:bg-muted">
           ביטול

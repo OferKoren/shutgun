@@ -8,6 +8,7 @@ const carInput = z.object({
   name: z.string().trim().min(1).max(60),
   plate: z.string().trim().max(20).optional().nullable(),
   color: z.string().trim().max(30).optional().nullable(),
+  icon: z.string().trim().max(30).optional().nullable(),
   notes: z.string().trim().max(500).optional().nullable(),
   ownerIds: z.array(z.string()).default([]),
 });
@@ -31,6 +32,7 @@ carsRouter.post('/', async (req, res, next) => {
         name: body.name,
         plate: body.plate ?? null,
         color: body.color ?? null,
+        icon: body.icon ?? null,
         notes: body.notes ?? null,
         owners: { create: body.ownerIds.map((memberId) => ({ memberId })) },
       },
@@ -49,6 +51,7 @@ carsRouter.patch('/:id', async (req, res, next) => {
         name: body.name,
         plate: body.plate,
         color: body.color,
+        icon: body.icon,
         notes: body.notes,
       },
     });

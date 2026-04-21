@@ -26,7 +26,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export type Member = { id: string; name: string; createdAt: string };
 export type Car = {
-  id: string; name: string; plate?: string | null; color?: string | null; notes?: string | null;
+  id: string; name: string; plate?: string | null; color?: string | null; icon?: string | null; notes?: string | null;
   owners: Member[];
 };
 export type BookingStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'CANCELLED';

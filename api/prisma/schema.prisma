@@ -20,6 +20,7 @@ model Car {
   name      String
   plate     String?
   color     String?
+  icon      String?
   notes     String?
   createdAt DateTime   @default(now())
   owners    CarOwner[]

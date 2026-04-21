@@ -10,3 +10,5 @@ api/prisma/*.db
 .vite/
 coverage/
 *.tsbuildinfo
+CLAUDE.md
+.claude/

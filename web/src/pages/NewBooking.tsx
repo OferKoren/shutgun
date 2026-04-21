@@ -33,7 +33,7 @@ export default function NewBookingPage({ meId }: { meId: string }) {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!carId) return setError('Pick a car');
+    if (!carId) return setError('בחרו רכב');
 
     const startAt = allDay
       ? new Date(`${date}T00:00:00`).toISOString()
@@ -46,70 +46,70 @@ export default function NewBookingPage({ meId }: { meId: string }) {
   };
 
   return (
-    <form onSubmit={onSubmit} className="bg-white rounded-xl p-6 shadow-sm max-w-lg space-y-4">
-      <h2 className="font-semibold text-xl">Request a car</h2>
+    <form onSubmit={onSubmit} className="bg-surface rounded-2xl p-6 shadow-soft border border-hairline max-w-lg space-y-4">
+      <h2 className="font-display font-semibold text-xl text-primary">בקשת רכב</h2>
 
       <label className="block">
-        <span className="text-sm font-medium">Car</span>
+        <span className="text-sm font-medium">רכב</span>
         <select
           value={carId}
           onChange={(e) => setCarId(e.target.value)}
-          className="mt-1 w-full border rounded px-3 py-2"
+          className="mt-1 w-full border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary"
           required
         >
-          <option value="">— pick —</option>
+          <option value="">— בחרו —</option>
           {cars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </label>
 
       <label className="flex items-center gap-2">
         <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
-        <span className="text-sm">All day</span>
+        <span className="text-sm">כל היום</span>
       </label>
 
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="text-sm font-medium">Start date</span>
+          <span className="text-sm font-medium">תאריך התחלה</span>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-2" required />
+            className="mt-1 w-full border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary" required />
         </label>
         <label className="block">
-          <span className="text-sm font-medium">End date</span>
+          <span className="text-sm font-medium">תאריך סיום</span>
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-2" required />
+            className="mt-1 w-full border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary" required />
         </label>
         {!allDay && (
           <>
             <label className="block">
-              <span className="text-sm font-medium">Start time</span>
+              <span className="text-sm font-medium">שעת התחלה</span>
               <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-                className="mt-1 w-full border rounded px-3 py-2" required />
+                className="mt-1 w-full border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary" required />
             </label>
             <label className="block">
-              <span className="text-sm font-medium">End time</span>
+              <span className="text-sm font-medium">שעת סיום</span>
               <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
-                className="mt-1 w-full border rounded px-3 py-2" required />
+                className="mt-1 w-full border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary" required />
             </label>
           </>
         )}
       </div>
 
       <label className="block">
-        <span className="text-sm font-medium">Purpose (optional)</span>
+        <span className="text-sm font-medium">סיבה (לא חובה)</span>
         <input value={purpose} onChange={(e) => setPurpose(e.target.value)}
-          placeholder="School run, grocery, date night…"
-          className="mt-1 w-full border rounded px-3 py-2" />
+          placeholder="הסעות, קניות, ערב זוגי…"
+          className="mt-1 w-full border border-hairline rounded-xl px-3 py-2 focus:outline-none focus:border-primary" />
       </label>
 
       {error && <div className="text-red-600 text-sm">{error}</div>}
 
       <div className="flex gap-2">
         <button type="submit" disabled={submit.isPending}
-          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50">
-          Submit request
+          className="px-4 py-2 bg-primary text-white rounded-xl shadow-soft font-semibold disabled:opacity-50">
+          שליחת בקשה
         </button>
-        <button type="button" onClick={() => nav(-1)} className="px-4 py-2 border rounded">
-          Cancel
+        <button type="button" onClick={() => nav(-1)} className="px-4 py-2 border border-hairline rounded-xl hover:bg-muted">
+          ביטול
         </button>
       </div>
     </form>

@@ -3,6 +3,7 @@ import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { useQuery } from '@tanstack/react-query';
 import { format, isSameDay } from 'date-fns';
+import { he } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { api, type Booking, type Car } from '../lib/api';
 
@@ -60,7 +61,7 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      <div className="bg-white rounded-xl p-4 shadow-sm">
+      <div className="bg-surface rounded-2xl p-4 shadow-soft border border-hairline">
         <DayPicker
           mode="single"
           month={month}
@@ -70,22 +71,24 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
           modifiers={modifiers}
           modifiersClassNames={modifiersClassNames}
           showOutsideDays
+          locale={he}
+          dir="rtl"
         />
-        <div className="flex gap-3 text-xs text-slate-600 mt-2 flex-wrap">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-green-500 rounded-full" /> all free</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-yellow-500 rounded-full" /> pending</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-red-500 rounded-full" /> all booked</span>
+        <div className="flex gap-3 text-xs text-ink/70 mt-2 flex-wrap">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-green-500 rounded-full" /> פנוי</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-yellow-500 rounded-full" /> ממתין</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 bg-red-500 rounded-full" /> תפוס</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h2 className="font-semibold text-lg mb-3">
-          {selected ? format(selected, 'EEEE, MMM d') : 'Pick a day'}
+      <div className="bg-surface rounded-2xl p-4 shadow-soft border border-hairline">
+        <h2 className="font-display font-semibold text-lg mb-3 text-primary">
+          {selected ? format(selected, 'EEEE, d בMMMM', { locale: he }) : 'בחרו תאריך'}
         </h2>
-        {!data && <div>Loading…</div>}
+        {!data && <div>טוען…</div>}
         {data && data.cars.length === 0 && (
-          <div className="text-slate-500 text-sm">
-            No cars yet. <Link className="text-blue-600 underline" to="/cars">Add one →</Link>
+          <div className="text-ink/60 text-sm">
+            אין רכבים עדיין. <Link className="text-primary underline" to="/cars">הוסיפו ←</Link>
           </div>
         )}
         {data && selected && (
@@ -95,40 +98,40 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
               const approved = forCar.filter((b) => b.status === 'APPROVED');
               const pending = forCar.filter((b) => b.status === 'PENDING');
               return (
-                <li key={car.id} className="border rounded-lg p-3">
+                <li key={car.id} className="border border-hairline rounded-xl p-3 bg-muted/40">
                   <div className="flex justify-between items-start gap-2">
                     <div>
                       <div className="font-medium">{car.name}</div>
-                      {car.color && <div className="text-xs text-slate-500">{car.color}</div>}
+                      {car.color && <div className="text-xs text-ink/60">{car.color}</div>}
                     </div>
                     <Link
                       to={`/new-booking?carId=${car.id}&date=${format(selected, 'yyyy-MM-dd')}`}
-                      className="text-sm px-3 py-1 bg-blue-600 text-white rounded"
+                      className="text-sm px-3 py-1 bg-primary text-white rounded-full font-semibold shadow-soft"
                     >
-                      Request
+                      בקשה
                     </Link>
                   </div>
 
                   {approved.length === 0 && pending.length === 0 && (
-                    <div className="text-sm text-green-700 mt-2">✓ Available all day</div>
+                    <div className="text-sm text-green-700 mt-2">✓ פנוי כל היום</div>
                   )}
 
                   {approved.map((b) => (
                     <div key={b.id} className="text-sm mt-2 text-red-700">
-                      🔒 {b.driver?.name ?? 'someone'} — {fmtRange(b, selected)}
-                      {b.purpose ? <span className="text-slate-500"> · {b.purpose}</span> : null}
+                      🔒 {b.driver?.name ?? 'מישהו'} — {fmtRange(b, selected)}
+                      {b.purpose ? <span className="text-ink/60"> · {b.purpose}</span> : null}
                     </div>
                   ))}
 
                   {pending.length > 0 && (
                     <div className="mt-2">
                       <div className="text-sm text-yellow-700 font-medium">
-                        {pending.length} pending request{pending.length > 1 ? 's' : ''}
+                        {pending.length} בקשות ממתינות
                       </div>
                       {pending.map((b) => (
-                        <div key={b.id} className="text-xs text-slate-600 pl-3">
-                          • {b.driver?.name ?? 'someone'} {fmtRange(b, selected)}
-                          {b.purpose ? <span className="text-slate-500"> · {b.purpose}</span> : null}
+                        <div key={b.id} className="text-xs text-ink/70 pr-3">
+                          • {b.driver?.name ?? 'מישהו'} {fmtRange(b, selected)}
+                          {b.purpose ? <span className="text-ink/60"> · {b.purpose}</span> : null}
                         </div>
                       ))}
                     </div>

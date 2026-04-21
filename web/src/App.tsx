@@ -31,26 +31,30 @@ export default function App() {
   }
 
   const link = ({ isActive }: { isActive: boolean }) =>
-    `px-3 py-2 rounded ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-200'}`;
+    `px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+      isActive
+        ? 'bg-primary text-white shadow-soft'
+        : 'text-ink/70 hover:bg-primary-50 hover:text-primary'
+    }`;
 
   return (
-    <div className="min-h-screen">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-cream">
+      <header className="bg-surface/80 backdrop-blur border-b border-hairline">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
-          <div className="font-bold text-lg mr-4">🚗 Family Shotgun</div>
+          <div dir="ltr" className="font-display font-bold text-xl ml-4 text-primary">🚗 Shutgun</div>
           <nav className="flex gap-1 flex-1 flex-wrap">
-            <NavLink to="/" end className={link}>Calendar</NavLink>
-            <NavLink to="/approvals" className={link}>Approvals</NavLink>
-            <NavLink to="/cars" className={link}>Cars</NavLink>
-            <NavLink to="/members" className={link}>Members</NavLink>
+            <NavLink to="/" end className={link}>יומן</NavLink>
+            <NavLink to="/approvals" className={link}>אישורים</NavLink>
+            <NavLink to="/cars" className={link}>רכבים</NavLink>
+            <NavLink to="/members" className={link}>משפחה</NavLink>
           </nav>
           <div className="text-sm">
-            <span className="text-slate-500">you are </span>
-            <b>{me.name}</b>{' '}
+            <span className="text-ink/60">מחוברים כ־</span>
+            <b className="text-ink">{me.name}</b>{' '}
             <button
               onClick={() => { setMemberId(null); setMid(null); }}
-              className="text-blue-600 underline ml-1"
-            >switch</button>
+              className="text-primary underline mr-1 hover:text-primary-500"
+            >החלפה</button>
           </div>
         </div>
       </header>

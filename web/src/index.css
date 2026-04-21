@@ -1,5 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Heebo:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-.rdp { --rdp-accent-color: #2563eb; }
+@layer base {
+  html, body { font-family: 'Heebo', system-ui, sans-serif; }
+  h1, h2, h3, h4 { font-family: 'Rubik', system-ui, sans-serif; letter-spacing: 0; }
+}
+
+.rdp { --rdp-accent-color: #9A3412; }

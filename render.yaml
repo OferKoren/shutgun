@@ -22,6 +22,12 @@ services:
           type: web
           name: shotgun-web
           property: host
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
 
   - type: web
     name: shotgun-web
@@ -34,6 +40,8 @@ services:
           type: web
           name: shotgun-api
           property: host
+      - key: VITE_VAPID_PUBLIC_KEY
+        sync: false
     routes:
       - type: rewrite
         source: /*

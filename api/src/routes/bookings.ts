@@ -4,9 +4,17 @@ import { prisma } from '../db.js';
 import { readMember, requireMember } from '../middleware/member.js';
 import { httpError } from '../middleware/error.js';
 import { autoDeclineConflictingPending, findOverlapping } from '../lib/conflicts.js';
+import { sendPushToMember, sendPushToMembers } from '../lib/push.js';
 
 export const bookingsRouter = Router();
 bookingsRouter.use(readMember);
+
+function fmtRange(startAt: Date, endAt: Date): string {
+  const f = new Intl.DateTimeFormat('he-IL', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+  return `${f.format(startAt)} – ${f.format(endAt)}`;
+}
 
 const createInput = z.object({
   carId: z.string(),
@@ -105,7 +113,30 @@ bookingsRouter.post('/', async (req, res, next) => {
     });
 
     if (autoApprove) {
-      await autoDeclineConflictingPending(body.carId, startAt, endAt, booking.id);
+      const declined = await autoDeclineConflictingPending(body.carId, startAt, endAt, booking.id);
+      if (declined.victims.length) {
+        await sendPushToMembers(
+          declined.victims.map((v) => v.driverId),
+          {
+            title: 'בקשתך נדחתה אוטומטית',
+            body: `${booking.car.name} נתפס ע״י בקשה אחרת`,
+            url: '/',
+            tag: 'auto-declined',
+          },
+        );
+      }
+    } else {
+      const owners = await prisma.carOwner.findMany({
+        where: { carId: body.carId },
+        select: { memberId: true },
+      });
+      const ownerIds = owners.map((o) => o.memberId).filter((id) => id !== body.driverId);
+      await sendPushToMembers(ownerIds, {
+        title: 'בקשת רכב חדשה',
+        body: `${booking.driver.name} ביקש ${booking.car.name} · ${fmtRange(startAt, endAt)}`,
+        url: '/approvals',
+        tag: `pending-${booking.id}`,
+      });
     }
 
     res.status(201).json(booking);
@@ -138,7 +169,25 @@ bookingsRouter.post('/:id/approve', requireMember, async (req, res, next) => {
       data: { status: 'APPROVED', decidedBy: req.memberId!, decidedAt: new Date() },
       include: { driver: true, car: true },
     });
-    await autoDeclineConflictingPending(booking.carId, booking.startAt, booking.endAt, booking.id);
+    const declined = await autoDeclineConflictingPending(booking.carId, booking.startAt, booking.endAt, booking.id);
+
+    await sendPushToMember(approved.driverId, {
+      title: 'הבקשה אושרה ✅',
+      body: `${approved.car.name} · ${fmtRange(approved.startAt, approved.endAt)}`,
+      url: '/',
+      tag: `approved-${approved.id}`,
+    });
+    if (declined.victims.length) {
+      await sendPushToMembers(
+        declined.victims.filter((v) => v.driverId !== approved.driverId).map((v) => v.driverId),
+        {
+          title: 'בקשתך נדחתה אוטומטית',
+          body: `${approved.car.name} אושר לבקשה אחרת`,
+          url: '/',
+          tag: 'auto-declined',
+        },
+      );
+    }
     res.json(approved);
   } catch (e) { next(e); }
 });
@@ -158,6 +207,13 @@ bookingsRouter.post('/:id/decline', requireMember, async (req, res, next) => {
     const declined = await prisma.booking.update({
       where: { id: booking.id },
       data: { status: 'DECLINED', decidedBy: req.memberId!, decidedAt: new Date(), declineReason: reason ?? null },
+      include: { car: true },
+    });
+    await sendPushToMember(declined.driverId, {
+      title: 'הבקשה נדחתה',
+      body: `${declined.car.name}${reason ? ` · ${reason}` : ''}`,
+      url: '/',
+      tag: `declined-${declined.id}`,
     });
     res.json(declined);
   } catch (e) { next(e); }

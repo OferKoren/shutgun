@@ -4,6 +4,7 @@ import { membersRouter } from './routes/members.js';
 import { carsRouter } from './routes/cars.js';
 import { bookingsRouter } from './routes/bookings.js';
 import { calendarRouter } from './routes/calendar.js';
+import { pushRouter } from './routes/push.js';
 import { errorHandler } from './middleware/error.js';
 
 const app = express();
@@ -16,6 +17,7 @@ app.use('/members', membersRouter);
 app.use('/cars', carsRouter);
 app.use('/bookings', bookingsRouter);
 app.use('/calendar', calendarRouter);
+app.use('/push', pushRouter);
 
 app.use(errorHandler);
 

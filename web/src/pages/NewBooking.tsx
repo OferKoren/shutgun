@@ -11,10 +11,11 @@ export default function NewBookingPage({ meId }: { meId: string }) {
   const { data: cars = [] } = useQuery({ queryKey: ['cars'], queryFn: () => api<Car[]>('/cars') });
 
   const initialDate = params.get('date') ?? new Date().toISOString().slice(0, 10);
+  const initialEndDate = params.get('endDate') ?? initialDate;
   const [carId, setCarId] = useState(params.get('carId') ?? '');
-  const [allDay, setAllDay] = useState(false);
+  const [allDay, setAllDay] = useState(initialEndDate !== initialDate);
   const [date, setDate] = useState(initialDate);
-  const [endDate, setEndDate] = useState(initialDate);
+  const [endDate, setEndDate] = useState(initialEndDate);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('12:00');
   const [purpose, setPurpose] = useState('');

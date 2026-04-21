@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { DayPicker } from 'react-day-picker';
+import { DayPicker, type DateRange } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { useQuery } from '@tanstack/react-query';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, eachDayOfInterval } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { api, type Booking, type Car } from '../lib/api';
@@ -10,8 +10,9 @@ import { api, type Booking, type Car } from '../lib/api';
 type CalendarPayload = { from: string; to: string; cars: Car[]; bookings: Booking[] };
 
 export default function CalendarPage({ meId: _meId }: { meId: string }) {
-  const [month, setMonth] = useState<Date>(new Date());
-  const [selected, setSelected] = useState<Date | undefined>(new Date());
+  const today = new Date();
+  const [month, setMonth] = useState<Date>(today);
+  const [range, setRange] = useState<DateRange | undefined>({ from: today, to: today });
 
   const monthStr = format(month, 'yyyy-MM');
   const { data } = useQuery({
@@ -56,18 +57,42 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
     red: 'after:content-[""] after:block after:w-1.5 after:h-1.5 after:bg-red-500 after:rounded-full after:mx-auto after:mt-0.5',
   };
 
-  const selectedKey = selected ? format(selected, 'yyyy-MM-dd') : null;
-  const dayBookings = selectedKey ? bookingsByDay.get(selectedKey) ?? [] : [];
+  const from = range?.from;
+  const to = range?.to ?? range?.from;
+  const fromKey = from ? format(from, 'yyyy-MM-dd') : '';
+  const toKey = to ? format(to, 'yyyy-MM-dd') : '';
+  const rangeBookings = useMemo(() => {
+    if (!from || !to) return [];
+    const seen = new Set<string>();
+    const out: Booking[] = [];
+    for (const d of eachDayOfInterval({ start: from, end: to })) {
+      const list = bookingsByDay.get(format(d, 'yyyy-MM-dd')) ?? [];
+      for (const b of list) {
+        if (!seen.has(b.id)) { seen.add(b.id); out.push(b); }
+      }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromKey, toKey, bookingsByDay]);
+
+  const rangeLabel = from && to
+    ? isSameDay(from, to)
+      ? format(from, 'EEEE, d בMMMM', { locale: he })
+      : `${format(from, 'd בMMMM', { locale: he })} – ${format(to, 'd בMMMM', { locale: he })}`
+    : 'בחרו תאריך או טווח';
+
+  const fromStr = from ? format(from, 'yyyy-MM-dd') : '';
+  const toStr = to ? format(to, 'yyyy-MM-dd') : fromStr;
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <div className="bg-surface rounded-2xl p-4 shadow-soft border border-hairline">
         <DayPicker
-          mode="single"
+          mode="range"
           month={month}
           onMonthChange={setMonth}
-          selected={selected}
-          onSelect={setSelected}
+          selected={range}
+          onSelect={setRange}
           modifiers={modifiers}
           modifiersClassNames={modifiersClassNames}
           showOutsideDays
@@ -83,7 +108,7 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
 
       <div className="bg-surface rounded-2xl p-4 shadow-soft border border-hairline">
         <h2 className="font-display font-semibold text-lg mb-3 text-primary">
-          {selected ? format(selected, 'EEEE, d בMMMM', { locale: he }) : 'בחרו תאריך'}
+          {rangeLabel}
         </h2>
         {!data && <div>טוען…</div>}
         {data && data.cars.length === 0 && (
@@ -91,10 +116,10 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
             אין רכבים עדיין. <Link className="text-primary underline" to="/cars">הוסיפו ←</Link>
           </div>
         )}
-        {data && selected && (
+        {data && from && to && (
           <ul className="space-y-3">
             {data.cars.map((car) => {
-              const forCar = dayBookings.filter((b) => b.carId === car.id);
+              const forCar = rangeBookings.filter((b) => b.carId === car.id);
               const approved = forCar.filter((b) => b.status === 'APPROVED');
               const pending = forCar.filter((b) => b.status === 'PENDING');
               return (
@@ -105,7 +130,7 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
                       {car.color && <div className="text-xs text-ink/60">{car.color}</div>}
                     </div>
                     <Link
-                      to={`/new-booking?carId=${car.id}&date=${format(selected, 'yyyy-MM-dd')}`}
+                      to={`/new-booking?carId=${car.id}&date=${fromStr}&endDate=${toStr}`}
                       className="text-sm px-3 py-1 bg-primary text-white rounded-full font-semibold shadow-soft"
                     >
                       בקשה
@@ -113,12 +138,12 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
                   </div>
 
                   {approved.length === 0 && pending.length === 0 && (
-                    <div className="text-sm text-green-700 mt-2">✓ פנוי כל היום</div>
+                    <div className="text-sm text-green-700 mt-2">✓ פנוי בטווח</div>
                   )}
 
                   {approved.map((b) => (
                     <div key={b.id} className="text-sm mt-2 text-red-700">
-                      🔒 {b.driver?.name ?? 'מישהו'} — {fmtRange(b, selected)}
+                      🔒 {b.driver?.name ?? 'מישהו'} — {fmtBooking(b)}
                       {b.purpose ? <span className="text-ink/60"> · {b.purpose}</span> : null}
                     </div>
                   ))}
@@ -130,7 +155,7 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
                       </div>
                       {pending.map((b) => (
                         <div key={b.id} className="text-xs text-ink/70 pr-3">
-                          • {b.driver?.name ?? 'מישהו'} {fmtRange(b, selected)}
+                          • {b.driver?.name ?? 'מישהו'} {fmtBooking(b)}
                           {b.purpose ? <span className="text-ink/60"> · {b.purpose}</span> : null}
                         </div>
                       ))}
@@ -146,13 +171,15 @@ export default function CalendarPage({ meId: _meId }: { meId: string }) {
   );
 }
 
-function fmtRange(b: Booking, day: Date) {
-  if (b.allDay) return 'all day';
+function fmtBooking(b: Booking) {
   const s = new Date(b.startAt);
   const e = new Date(b.endAt);
-  const sSame = isSameDay(s, day);
-  const eSame = isSameDay(e, day);
-  const sStr = sSame ? format(s, 'HH:mm') : format(s, 'MMM d HH:mm');
-  const eStr = eSame ? format(e, 'HH:mm') : format(e, 'MMM d HH:mm');
-  return `${sStr}–${eStr}`;
+  if (b.allDay) {
+    return isSameDay(s, e)
+      ? `${format(s, 'd בMMMM', { locale: he })} · כל היום`
+      : `${format(s, 'd בMMMM', { locale: he })}–${format(e, 'd בMMMM', { locale: he })}`;
+  }
+  return isSameDay(s, e)
+    ? `${format(s, 'd בMMMM HH:mm', { locale: he })}–${format(e, 'HH:mm')}`
+    : `${format(s, 'd בMMMM HH:mm', { locale: he })}–${format(e, 'd בMMMM HH:mm', { locale: he })}`;
 }
